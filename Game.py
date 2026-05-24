@@ -343,6 +343,11 @@ class RacetrackSelection(Game):
     def __init__(self):
         ShowBase.__init__(self)
 
+        # Load and play menu theme music
+        self.menuMusic = base.loader.loadSfx("audio/menutheme.ogg")
+        self.menuMusic.setLoop(True)
+        self.menuMusic.play()
+
         '''
         concreteBg = OnscreenImage(
             image="img/startscreen.png",
@@ -458,6 +463,7 @@ class RacetrackSelection(Game):
         )
 
     def selectCar(self):
+        self.menuMusic.stop()
         self.camControl.enabled = False
         self.nextState("racecar")
 
@@ -480,6 +486,11 @@ class RacetrackSelection(Game):
 class RacecarSelection(Game):
     def __init__(self):
         ShowBase.__init__(self)
+
+        # Load and play menu theme music
+        self.menuMusic = base.loader.loadSfx("audio/menutheme.ogg")
+        self.menuMusic.setLoop(True)
+        self.menuMusic.play()
 
         title = OnscreenText(
             text='Select your Racecar and Passenger!', pos=(0, 0.7), scale=0.18,
@@ -599,6 +610,7 @@ class RacecarSelection(Game):
         return items
 
     def startGame(self):
+        self.menuMusic.stop()
         self.nextState("instructions")
 
 class InstructionsScreen(Game):
