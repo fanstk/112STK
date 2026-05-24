@@ -256,6 +256,11 @@ class StartScreen(Game):
     def __init__(self):
         ShowBase.__init__(self)
 
+        # Load and play menu theme music
+        self.menuMusic = base.loader.loadSfx("audio/menutheme.ogg")
+        self.menuMusic.setLoop(True)
+        self.menuMusic.play()
+
         try:
             concreteBg = OnscreenImage(
                 image="img/startscreen.png",
@@ -328,6 +333,7 @@ Hold V to look around | R to Restart
         self.accept("space-up", self.startGame)
 
     def startGame(self):
+        self.menuMusic.stop()
         self.nextState("RacetrackSelection")
 
     def changeLevel(self, level):
