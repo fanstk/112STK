@@ -52,6 +52,7 @@ class Game(ShowBase):
     selectedCar = "groundroamer"
     selectedPassenger = "penguin"
     level = "medium"
+    numPlayers = 4  # Default number of players (including the human player)
 
     currentState = None
 
@@ -293,15 +294,35 @@ class StartScreen(Game):
             text_scale=0.8
         )
 
+        text = OnscreenText(
+            text='Players:', pos=(-0.1, -0.15), scale=0.1,
+            font=Game.fonts["AmericanCaptain"], bg=(255, 255, 255, 0.1),
+            align=TextNode.ARight, mayChange=False
+        )
+
+        playerOptions = [str(i) for i in range(2, 25)]  # 2 to 24 players
+        initialPlayerIndex = Game.numPlayers - 2  # Adjust for 0-based index
+
+        playerMenu = DirectOptionMenu(
+            scale=0.12,
+            items=playerOptions, initialitem=initialPlayerIndex,
+            highlightColor=(10, 10, 10, 1),
+            pad=(10, 10),
+            pos=(0, 0, -0.15),
+            popupMenu_pos=(-0.5, 0, 0),
+            command=self.changeNumPlayers,
+            text_scale=0.8
+        )
+
         startGameButton = DirectButton(
             text="Start  Game", text_font=Game.fonts["AmericanCaptain"],
             scale=0.15, command=self.startGame,
             pad=(0.3, 0.3),
-            pos=(0, 0, -0.32)
+            pos=(0, 0, -0.45)
         )
 
         spaceShortcut = OnscreenText(
-            text='[Space]', pos=(0, -0.49), scale=0.08,
+            text='[Space]', pos=(0, -0.62), scale=0.08,
             font=Game.fonts["AmericanCaptain"],
             align=TextNode.ACenter, mayChange=False,
             bg=(182, 182, 182, 0.5)
@@ -323,7 +344,7 @@ WASD/Arrow Keys to Drive | Hold Space to drift
 Hold V to look around | R to Restart
 """
         OnscreenText(
-            text=helpText, pos=(0, -0.7), scale=0.1,
+            text=helpText, pos=(0, -0.85), scale=0.1,
             bg=(255,255,255,0.7), wordwrap=20,
             font=Game.fonts["AmericanCaptain"],
             align=TextNode.ACenter, mayChange=False
@@ -338,6 +359,9 @@ Hold V to look around | R to Restart
 
     def changeLevel(self, level):
         Game.level = level.lower()
+
+    def changeNumPlayers(self, numPlayers):
+        Game.numPlayers = int(numPlayers)
 
 class RacetrackSelection(Game):
     def __init__(self):
@@ -897,22 +921,55 @@ class RacingGame(Game):
         self.player = Racecar(self, Game.selectedCar, Game.selectedPassenger, self.render)
         self.cars.append(self.player)
 
-        # Basic levels
-        # TODO: Maybe more cars (easy to add)?
+        # Generate opponent cars based on numPlayers setting
+        # We need (numPlayers - 1) opponent cars since player is already added
+        numOpponents = Game.numPlayers - 1
+        
+        # Define car types for each difficulty level
         if Game.level == "easy":
-            car1 = NotSoStupidCar(self, "racecar", 'bunny', self.render)
-            car2 = NotSoStupidCar(self, "jeep", "chicken", self.render)
+            carTypes = [
+                ("racecar", "bunny", NotSoStupidCar),
+                ("jeep", "chicken", NotSoStupidCar),
+                ("groundroamer", "penguin", NotSoStupidCar),
+            ]
         elif Game.level == "hard":
-            car1 = SmartGreedyCar(self, "groundroamer", "bunny", self.render)
-            car2 = SmartGreedyCar(self, "jeep", "chicken", self.render)
-        else: # normal level
-            car1 = SmartCar(self, "groundroamer", 'bunny', self.render)
-            car2 = SmartGreedyCar(self, "jeep", "chicken", self.render)
+            carTypes = [
+                ("groundroamer", "bunny", SmartGreedyCar),
+                ("jeep", "chicken", SmartGreedyCar),
+                ("racecar", "penguin", SmartGreedyCar),
+            ]
+        else:  # normal/medium level
+            carTypes = [
+                ("groundroamer", "bunny", SmartCar),
+                ("jeep", "chicken", SmartGreedyCar),
+                ("racecar", "penguin", SmartCar),
+            ]
+        
+        # Available passengers for variety
+        passengers = ["bunny", "chicken", "penguin"]
+        carModels = ["groundroamer", "jeep", "racecar"]
+        
+        # Create opponent cars up to the selected number
+        for i in range(numOpponents):
+            # Cycle through available car types or use random ones if we exceed the list
+            if i < len(carTypes):
+                model, passenger, carClass = carTypes[i]
+            else:
+                # For additional cars beyond the base set, use random combinations
+                model = carModels[i % len(carModels)]
+                passenger = passengers[i % len(passengers)]
+                # Alternate between car classes based on difficulty
+                if Game.level == "easy":
+                    carClass = NotSoStupidCar
+                elif Game.level == "hard":
+                    carClass = SmartGreedyCar
+                else:
+                    carClass = SmartCar if i % 2 == 0 else SmartGreedyCar
+            
+            opponent = carClass(self, model, passenger, self.render)
+            self.cars.append(opponent)
 
-        self.cars.append(car1)
-        self.cars.append(car2)
-
-        if self.printStatements: print(f"Opponent cars generated with difficulty {Game.level}")
+        if self.printStatements: print(f"Opponent cars generated with difficulty {Game.level} ({len(self.cars)-1} opponents)")
 
     def loadMinimap(self):
         # Initialise points for minimap
