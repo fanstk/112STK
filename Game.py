@@ -51,6 +51,7 @@ class Game(ShowBase):
     selectedTrack = "random.track"
     selectedCar = "groundroamer"
     selectedPassenger = "penguin"
+    selectedMode = "classic_mode"  # Default game mode
     level = "medium"
     numPlayers = 4  # Default number of players (including the human player)
 
@@ -91,6 +92,8 @@ Collect the powerups, and beat all the other cars to win!
 
         if state in [ "startscreen", "start" ]:
             StartScreen()
+        elif state in [ "gamemodeselection", "gamemode", "mode" ]:
+            GameModeSelection()
         elif state in [ "game", "racing", "racinggame", "main" ]:
             RacingGame()
         elif state in [ "racetrackselection", "racetrack", "track" ]:
@@ -355,13 +358,148 @@ Hold V to look around | R to Restart
 
     def startGame(self):
         self.menuMusic.stop()
-        self.nextState("RacetrackSelection")
+        self.nextState("GameModeSelection")
 
     def changeLevel(self, level):
         Game.level = level.lower()
 
     def changeNumPlayers(self, numPlayers):
         Game.numPlayers = int(numPlayers)
+
+class GameModeSelection(Game):
+    def __init__(self):
+        ShowBase.__init__(self)
+
+        # Load and play menu theme music
+        self.menuMusic = base.loader.loadSfx("audio/menutheme.ogg")
+        self.menuMusic.setLoop(True)
+        self.menuMusic.play()
+
+        try:
+            concreteBg = OnscreenImage(
+                image="img/startscreen.png",
+                scale=(1.5, 1.5, 1)
+            )
+        except:
+            print("img/startscreen.png not found. Get it from Github.")
+            concreteBg = None
+
+        title = OnscreenText(
+            text='Select Game Mode!', pos=(0, 0.65), scale=0.22,
+            font=Game.fonts["AmericanCaptain"], bg=(255, 255, 255, 1),
+            align=TextNode.ACenter, mayChange=False
+        )
+
+        nextButton = DirectButton(
+            text="Next", text_font=Game.fonts["AmericanCaptain"],
+            scale=0.12, command=self.selectTrack,
+            pad=(0.3, 0.3),
+            pos=(0, 0, -0.75)
+        )
+
+        spaceShortcut = OnscreenText(
+            text='[Space]', pos=(0, -0.88), scale=0.08,
+            font=Game.fonts["AmericanCaptain"],
+            align=TextNode.ACenter, mayChange=False,
+            bg=(182, 182, 182, 0.5),
+        )
+
+        # Load game modes from /modes folder using importlib
+        self.modes = self.loadModes("modes")
+
+        # Find the index of the currently selected mode
+        initialItem = 0
+        for i, mode_file in enumerate(self.modes):
+            if mode_file.replace(".py", "") == Game.selectedMode:
+                initialItem = i
+                break
+
+        # Create description text area
+        self.modeDescription = OnscreenText(
+            text='', pos=(0, 0.25), scale=0.09,
+            font=Game.fonts["AmericanCaptain"],
+            align=TextNode.ACenter, mayChange=True,
+            bg=(255, 255, 255, 0.5), wordwrap=25
+        )
+
+        # Update description on initialization
+        self.updateModeDescription(self.modes[initialItem])
+
+        self.menu = DirectOptionMenu(
+            scale=0.15,
+            items=[m.replace(".py", "").replace("_", " ").title() for m in self.modes],
+            initialitem=initialItem,
+            highlightColor=(10, 10, 10, 1), 
+            pad=(10, 10),
+            pos=(0, 0, 0.4),
+            popupMenu_pos=(0, 0, 0.2),
+            command=self.onModeSelect
+        )
+
+        helperText = OnscreenText(
+            text='Select a game mode to continue!', pos=(0, -0.55), scale=0.08,
+            font=Game.fonts["AmericanCaptain"],
+            align=TextNode.ACenter, mayChange=False,
+            bg=(182, 182, 182, 0.5),
+        )
+
+        # Next frame without clicking
+        self.accept("space-up", self.selectTrack)
+
+    def loadModes(self, path):
+        """Load all Python mode files from the modes directory using importlib"""
+        import os
+        import importlib.util
+        
+        modes = []
+        
+        if os.path.isdir(path):
+            for f in sorted(os.listdir(path)):
+                if f.endswith("_mode.py") and f != "__init__.py":
+                    modes.append(f)
+        
+        return modes
+
+    def onModeSelect(self, selectedText):
+        """Called when a mode is selected from the menu"""
+        # Convert display name back to file name (e.g., "Classic Mode" -> "classic_mode.py")
+        mode_file = selectedText.lower().replace(" ", "_") + "_mode.py"
+        
+        # Find the matching mode file
+        for mode in self.modes:
+            if mode == mode_file:
+                Game.selectedMode = mode.replace(".py", "")
+                self.updateModeDescription(mode)
+                break
+        
+        print(f"Selected mode: {Game.selectedMode}")
+
+    def updateModeDescription(self, mode_file):
+        """Update the description text based on selected mode"""
+        import importlib.util
+        import os
+        
+        mode_name = mode_file.replace(".py", "")
+        mode_path = os.path.join("modes", mode_file)
+        
+        try:
+            # Load the module dynamically using importlib
+            spec = importlib.util.spec_from_file_location(mode_name, mode_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            # Get the mode class (assumes class name is Mode name + "Mode")
+            class_name = "".join(word.capitalize() for word in mode_name.split("_"))
+            if hasattr(module, class_name):
+                mode_instance = getattr(module, class_name)()
+                description = mode_instance.get_description()
+                self.modeDescription.setText(description)
+        except Exception as e:
+            self.modeDescription.setText(f"Error loading mode: {str(e)}")
+
+    def selectTrack(self):
+        self.menuMusic.stop()
+        self.nextState("RacetrackSelection")
 
 class RacetrackSelection(Game):
     def __init__(self):
