@@ -90,6 +90,8 @@ Collect the powerups, and beat all the other cars to win!
 
         if state in [ "startscreen", "start" ]:
             StartScreen()
+        elif state in [ "gamemodeselection", "gamemode", "mode" ]:
+            GameModeSelection()
         elif state in [ "game", "racing", "racinggame", "main" ]:
             RacingGame()
         elif state in [ "racetrackselection", "racetrack", "track" ]:
@@ -295,7 +297,7 @@ class StartScreen(Game):
 
         startGameButton = DirectButton(
             text="Start  Game", text_font=Game.fonts["AmericanCaptain"],
-            scale=0.15, command=self.startGame,
+            scale=0.15, command=self.selectMode,
             pad=(0.3, 0.3),
             pos=(0, 0, -0.32)
         )
@@ -330,14 +332,92 @@ Hold V to look around | R to Restart
         )
 
         # Next frame without clicking
-        self.accept("space-up", self.startGame)
+        self.accept("space-up", self.selectMode)
 
-    def startGame(self):
+    def selectMode(self):
         self.menuMusic.stop()
-        self.nextState("RacetrackSelection")
+        self.nextState("GameModeSelection")
 
     def changeLevel(self, level):
         Game.level = level.lower()
+
+class GameModeSelection(Game):
+    def __init__(self):
+        ShowBase.__init__(self)
+
+        # Load and play menu theme music
+        self.menuMusic = base.loader.loadSfx("audio/menutheme.ogg")
+        self.menuMusic.setLoop(True)
+        self.menuMusic.play()
+
+        try:
+            concreteBg = OnscreenImage(
+                image="img/startscreen.png",
+                scale=(1.5, 1.5, 1)
+            )
+        except:
+            print("img/startscreen.png not found. Get it from Github.")
+            concreteBg = None
+
+        title = OnscreenText(
+            text='Select Game Mode!', pos=(0, 0.6), scale=0.25,
+            font=Game.fonts["AmericanCaptain"],
+            align=TextNode.ACenter, mayChange=False
+        )
+
+        # Discover available modes from the /modes folder using importlib
+        import importlib
+        import os
+        import pkgutil
+
+        modes_path = os.path.join(os.path.dirname(__file__), 'modes')
+        self.modes = []
+        self.mode_modules = {}
+
+        for importer, modname, ispkg in pkgutil.iter_modules([modes_path]):
+            if not modname.startswith('_'):
+                self.modes.append(modname.replace('_', ' ').title())
+                self.mode_modules[modname] = importlib.import_module(f'modes.{modname}')
+
+        # Default to first mode if available
+        initial_item = 0 if len(self.modes) > 0 else 0
+
+        self.mode_menu = DirectOptionMenu(
+            scale=0.15,
+            items=self.modes if self.modes else ["No Modes Found"],
+            initialitem=initial_item,
+            highlightColor=(10, 10, 10, 1),
+            pad=(10, 10),
+            pos=(0, 0, 0.2),
+            popupMenu_pos=(0, 0, 0.2),
+            command=self.selectMode
+        )
+
+        nextButton = DirectButton(
+            text="Next", text_font=Game.fonts["AmericanCaptain"],
+            scale=0.12, command=self.confirmMode,
+            pad=(0.3, 0.3),
+            pos=(0, 0, -0.4)
+        )
+
+        spaceShortcut = OnscreenText(
+            text='[Space]', pos=(0, -0.52), scale=0.08,
+            font=Game.fonts["AmericanCaptain"],
+            align=TextNode.ACenter, mayChange=False,
+            bg=(182, 182, 182, 0.5),
+        )
+
+        # Next frame without clicking
+        self.accept("space-up", self.confirmMode)
+
+    def selectMode(self, selected_mode):
+        """Store the selected mode name"""
+        # Convert display name back to module name
+        Game.selectedMode = selected_mode.lower().replace(' ', '_')
+
+    def confirmMode(self):
+        self.menuMusic.stop()
+        self.nextState("RacetrackSelection")
 
 class RacetrackSelection(Game):
     def __init__(self):
