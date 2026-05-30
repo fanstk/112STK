@@ -610,8 +610,14 @@ class RacetrackSelection(Game):
 
     def selectTrack(self, track):
         Game.selectedTrack = track
-
-        points = Racetrack.parseTrackFile(track)
+        
+        # Handle GLB/GLTF tracks differently
+        if track.endswith(".glb") or track.endswith(".gltf"):
+            # For GLB tracks, we can't parse track points from a .track file
+            # Use a placeholder or extract from model bounds
+            points = [(0, 0, 0), (100, 0, 0), (100, 100, 0), (0, 100, 0)]  # Placeholder
+        else:
+            points = Racetrack.parseTrackFile(track)
 
         self.minimap.reloadAndDraw(points)
 
@@ -639,9 +645,13 @@ class RacetrackSelection(Game):
             tracks = []
 
             for f in os.listdir(path):
-                tracks += self.findTracks(path + "/" + f)
+                # Include both .track files and .glb/.gltf models
+                if f.endswith(".track") or f.endswith(".glb") or f.endswith(".gltf"):
+                    tracks.append(f)
+                elif not f.startswith("."):  # Skip hidden files and non-track files
+                    tracks += self.findTracks(path + "/" + f)
             
-            return tracks
+            return sorted(tracks)
         else:
             return []
 
@@ -1052,7 +1062,15 @@ class RacingGame(Game):
         Racecar.nRacecars = 0
         Powerup.nPowerups = 0
 
-        self.racetrack = Racetrack(self, Game.selectedTrack)
+        # Check if selected track is a GLB/GLTF model or a .track file
+        trackModel = None
+        trackName = Game.selectedTrack
+        
+        if trackName.endswith(".glb") or trackName.endswith(".gltf"):
+            trackModel = trackName
+            trackName = "test.track"  # Fallback for checkpoint generation
+        
+        self.racetrack = Racetrack(self, trackName, trackModel)
 
         # Only the positions are updated here because we want to space them out
         # But car facing and checkpoint handling are handled inside the init function

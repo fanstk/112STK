@@ -1,0 +1,28 @@
+# How to Create a GLB Track in Blender
+
+1. Open Blender and create your racetrack:
+   - Use curves or mesh modeling to create the track path
+   - Add walls/barriers on both sides
+   - Keep the track as a closed loop
+
+2. Prepare for export:
+   - Apply all transforms (Ctrl+A -> All Transforms)
+   - Ensure normals are facing correctly (Shift+N in Edit Mode)
+   - Keep geometry relatively simple for better performance
+
+3. Export as GLB:
+   - File > Export > glTF 2.0 (.glb/.gltf)
+   - Check "Include > Selected Objects" if you want to export only the track
+   - Format: Binary (.glb)
+   - Apply modifiers if needed
+   - Click "Export glTF 2.0"
+
+4. Save the file to /racetracks/ folder with a descriptive name
+   Example: "my_custom_track.glb"
+
+5. Launch the game and select your track from the track selection menu!
+
+Tips:
+- Scale: 1 Blender unit = 1 meter in Panda3D
+- Origin: Place track center near (0, 0, 0)
+- Collision: The entire mesh will be used for collision detection
