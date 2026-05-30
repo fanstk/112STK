@@ -815,6 +815,9 @@ class RacingGame(Game):
         self.helpDialog.hide()
         self.helpDialog.nextButton["command"] = self.togglePause
 
+        # Initialize game mode specific settings
+        self.initGameMode()
+
         self.totalLaps = 3
 
         Obj3D.worldRenderer = self.render
@@ -827,6 +830,16 @@ class RacingGame(Game):
             bg=(255, 255, 255, 0.7), font=Game.fonts["AmericanCaptain"],
             align=TextNode.ALeft, mayChange=True
         )
+        
+        # Add timer text for time trial mode
+        if Game.selectedMode == "time_trial_mode":
+            self.texts["timer"] = OnscreenText(
+                text='Time: 0.00s', pos=(0, 0.9), scale=0.12,
+                bg=(255, 255, 255, 0.7), font=Game.fonts["AmericanCaptain"],
+                align=TextNode.ACenter, mayChange=True
+            )
+            self.startTime = None
+            self.elapsedTime = 0.0
 
         # Load collision handlers
         self.collisionSetup(showCollisions=False)
@@ -859,6 +872,26 @@ class RacingGame(Game):
 
         # Start a game timer
         self.taskMgr.add(self.gameTimer, "GameTimer")
+        
+    def initGameMode(self):
+        """Initialize settings based on selected game mode"""
+        import importlib.util
+        import os
+        
+        mode_name = Game.selectedMode
+        mode_path = os.path.join("modes", f"{mode_name}.py")
+        
+        try:
+            spec = importlib.util.spec_from_file_location(mode_name, mode_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            class_name = "".join(word.capitalize() for word in mode_name.split("_"))
+            if hasattr(module, class_name):
+                mode_instance = getattr(module, class_name)()
+                mode_instance.on_start()
+        except Exception as e:
+            print(f"Error initializing game mode: {e}")
 
     def setCameraToPlayer(self, task):
         # Focus on winning car when gameover
@@ -1081,46 +1114,31 @@ class RacingGame(Game):
         # We need (numPlayers - 1) opponent cars since player is already added
         numOpponents = Game.numPlayers - 1
         
-        # Define car types for each difficulty level
+        # Get list of available car models and passengers from the models folder
+        all_car_models = self.findCarsOrPassengers("models", "car_")
+        all_passengers = self.findCarsOrPassengers("models", "passenger_")
+        
+        # Define car classes for each difficulty level
         if Game.level == "easy":
-            carTypes = [
-                ("racecar", "bunny", NotSoStupidCar),
-                ("jeep", "chicken", NotSoStupidCar),
-                ("groundroamer", "penguin", NotSoStupidCar),
-            ]
+            base_car_class = NotSoStupidCar
         elif Game.level == "hard":
-            carTypes = [
-                ("groundroamer", "bunny", SmartGreedyCar),
-                ("jeep", "chicken", SmartGreedyCar),
-                ("racecar", "penguin", SmartGreedyCar),
-            ]
+            base_car_class = SmartGreedyCar
         else:  # normal/medium level
-            carTypes = [
-                ("groundroamer", "bunny", SmartCar),
-                ("jeep", "chicken", SmartGreedyCar),
-                ("racecar", "penguin", SmartCar),
-            ]
+            base_car_class = SmartCar
         
-        # Available passengers for variety
-        passengers = ["bunny", "chicken", "penguin"]
-        carModels = ["groundroamer", "jeep", "racecar"]
-        
-        # Create opponent cars up to the selected number
+        # Create opponent cars up to the selected number with random selections
         for i in range(numOpponents):
-            # Cycle through available car types or use random ones if we exceed the list
-            if i < len(carTypes):
-                model, passenger, carClass = carTypes[i]
+            # Randomly select car model and passenger from available options
+            model = random.choice(all_car_models)
+            passenger = random.choice(all_passengers)
+            
+            # Vary car class slightly based on index for variety
+            if Game.level == "easy":
+                carClass = NotSoStupidCar
+            elif Game.level == "hard":
+                carClass = SmartGreedyCar
             else:
-                # For additional cars beyond the base set, use random combinations
-                model = carModels[i % len(carModels)]
-                passenger = passengers[i % len(passengers)]
-                # Alternate between car classes based on difficulty
-                if Game.level == "easy":
-                    carClass = NotSoStupidCar
-                elif Game.level == "hard":
-                    carClass = SmartGreedyCar
-                else:
-                    carClass = SmartCar if i % 2 == 0 else SmartGreedyCar
+                carClass = SmartCar if i % 2 == 0 else SmartGreedyCar
             
             opponent = carClass(self, model, passenger, self.render)
             self.cars.append(opponent)
