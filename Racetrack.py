@@ -4,6 +4,7 @@ from Terrain import *
 from Powerup import *
 
 import copy
+from panda3d.core import CollisionMesh, NodePath, CollisionNode
 
 class Wall(Obj3D):
     def __init__(self, gameObj, model, renderParent=None, pos=None, hpr=None):
@@ -49,10 +50,16 @@ class HighWall():
 Class holds all walls and floors
 '''
 class Racetrack(Obj3D):
-    def __init__(self, gameObj, trackName="test.track"):
+    def __init__(self, gameObj, trackName="test.track", trackModel=None):
         self.gameObj = gameObj
         self.wallType = "concrete_crate"
-
+        self.trackModel = trackModel  # GLB model path if using custom track
+        
+        # Check if we're loading from a GLB file
+        if trackModel and (trackModel.endswith(".glb") or trackModel.endswith(".gltf")):
+            self.loadFromGLB(trackModel)
+            return
+            
         # Get wall dimensions through a temporary wall
         tempWall = Wall(self.gameObj, self.wallType)
         self.wallDim = tempWall.getDimensions()
@@ -89,6 +96,80 @@ class Racetrack(Obj3D):
         self.powerupSpawnChance = 0.5
         self.powerups = []
         self.generatePowerups()
+    
+    def loadFromGLB(self, glbPath):
+        """Load racetrack from a GLB/GLTF file with mesh collider"""
+        try:
+            # Load the GLB model
+            self.model = loader.loadModel(f"racetracks/{glbPath}")
+            self.model.reparentTo(self.gameObj.render)
+            
+            # Generate collision mesh from the loaded model
+            self.generateMeshCollider()
+            
+            # Extract track points for checkpoints (approximate from model bounds)
+            self.points = self.extractTrackPointsFromModel()
+            self.trackBounds = self.getRacetrackBounds()
+            
+            # Generate checkpoints based on extracted points
+            self.showCheckpoints = False
+            self.checkpoints = []
+            if self.points:
+                self.generateCheckpoints()
+            
+            # Generate powerups
+            self.powerupSpawnChance = 0.5
+            self.powerups = []
+            self.generatePowerups()
+            
+        except Exception as e:
+            print(f"Error loading GLB track {glbPath}: {e}")
+            # Fallback to default track
+            self.__init__(self.gameObj, "test.track", None)
+    
+    def generateMeshCollider(self):
+        """Generate a mesh collider from the loaded GLB model"""
+        # Create collision mesh from the visual model
+        colNode = CollisionNode("track_collision")
+        colNode.setIntoCollideMask(self.gameObj.colBitMask["wall"])
+        
+        # Add collision mesh for each geometry in the track model
+        for geomNode in self.model.findAllMatches("**/+GeomNode"):
+            for i, geom in enumerate(geomNode.node().geoms):
+                # Create collision mesh from geometry
+                colMesh = CollisionMesh(geom)
+                colNode.addSolid(colMesh)
+        
+        # Attach collision node to the model
+        colNP = self.model.attachNewNode(colNode)
+        
+        # Show collision mesh for debugging (optional)
+        # colNP.show()
+    
+    def extractTrackPointsFromModel(self):
+        """Extract approximate track points from the GLB model bounds"""
+        # Get bounding box of the model
+        if not self.model:
+            return []
+        
+        bounds = self.model.getBounds()
+        center = bounds.getCenter()
+        radius = bounds.getRadius()
+        
+        # Create circular track points around the model center
+        # This is a simple approximation - ideally the GLB should contain track point data
+        numPoints = 8
+        points = []
+        angleStep = 2 * math.pi / numPoints
+        
+        for i in range(numPoints):
+            angle = i * angleStep
+            x = center.getX() + radius * math.cos(angle)
+            y = center.getY() + radius * math.sin(angle)
+            z = center.getZ()
+            points.append((x, y, z))
+        
+        return points
     
     # Generate checkpoints
     # Basically collision boxes from left to right side point
