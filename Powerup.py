@@ -4,7 +4,8 @@ class Powerup(Obj3D):
     nPowerups = 0
     types = {
         "shield": "shield",
-        "speed": "bolt"
+        "speed": "bolt",
+        "bola_de_nieve": "sphere"  # White sphere for bola de nieve
     }
     lastTime = 5 # seconds because task.time returns seconds
 
@@ -32,6 +33,8 @@ class Powerup(Obj3D):
             self.scaleAll(1.5)
         elif "bolt" == model:
             self.scaleAll(1.2)
+        elif "sphere" == model:
+            self.scaleAll(0.8)
 
         self.repositionToCenter()
         self.move(dz=self.dimZ/2)
@@ -78,6 +81,8 @@ class DisabledPowerup(Powerup):
             self.scaleAll(0.4)
         elif "bolt" == model:
             self.scaleAll(0.4)
+        elif "sphere" == model:
+            self.scaleAll(0.3)
 
         self.move(dz=1)
 
