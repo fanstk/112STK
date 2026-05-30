@@ -4,7 +4,7 @@ from Terrain import *
 from Powerup import *
 
 import copy
-from panda3d.core import CollisionMesh, NodePath, CollisionNode
+from panda3d.core import NodePath, CollisionNode, GeomNode
 
 class Wall(Obj3D):
     def __init__(self, gameObj, model, renderParent=None, pos=None, hpr=None):
